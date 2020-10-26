@@ -192,7 +192,7 @@ namespace XlsxJson
             if (Kind == TypeKind.Simple)
             {
                 if (Items[0] != __str) outValue = Parse(Items[0], value);
-                else outValue.value = (value ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n");
+                else outValue.value = '"' + (value ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n") + '"';
             }
             else
             {
