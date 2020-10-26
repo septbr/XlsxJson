@@ -106,30 +106,38 @@ namespace XlsxJson
 
                 Console.WriteLine("  ({0}/{1}) {2}", i + 1, config.xlsxs.Count, xlsx);
                 Console.ForegroundColor = ConsoleColor.Red;
-                using (var workbook = XlsxTextReader.Workbook.Open(xlsx))
+                try
                 {
-                    foreach (var worksheet in workbook.Read())
+                    using (var workbook = XlsxTextReader.Workbook.Open(xlsx))
                     {
-                        var sheet = new Sheet();
-                        sheet.Read(worksheet);
-                        if (sheet.Error != 0)
+                        foreach (var worksheet in workbook.Read())
                         {
-                            Console.WriteLine("      错误: {0}:{1} {2}", sheet.Text, sheet.Reference, sheet.ErrorInfo);
-                            res = -1;
-                            break;
-                        }
-                        if (sheet.Indexs.Count > 0)
-                        {
-                            var xlsx2 = sheets.Find(st => st.sheet.Text == sheet.Text).xlsx;
-                            if (xlsx2 != null)
+                            var sheet = new Sheet();
+                            sheet.Read(worksheet);
+                            if (sheet.Error != 0)
                             {
-                                Console.WriteLine("      错误: {0} 已存在于{1}", sheet.Text, xlsx2);
+                                Console.WriteLine("      错误: {0}:{1} {2}", sheet.Text, sheet.Reference, sheet.ErrorInfo);
                                 res = -1;
                                 break;
                             }
-                            sheets.Add((xlsx, sheet));
+                            if (sheet.Indexs.Count > 0)
+                            {
+                                var xlsx2 = sheets.Find(st => st.sheet.Text == sheet.Text).xlsx;
+                                if (xlsx2 != null)
+                                {
+                                    Console.WriteLine("      错误: {0} 已存在于{1}", sheet.Text, xlsx2);
+                                    res = -1;
+                                    break;
+                                }
+                                sheets.Add((xlsx, sheet));
+                            }
                         }
                     }
+                }
+                catch (System.Exception ex)
+                {
+                    Console.WriteLine("      错误: " + ex.Message);
+                    throw;
                 }
                 Console.ResetColor();
             }
