@@ -137,7 +137,6 @@ namespace XlsxJson
                 catch (System.Exception ex)
                 {
                     Console.WriteLine("      错误: " + ex.Message);
-                    throw;
                 }
                 Console.ResetColor();
             }
