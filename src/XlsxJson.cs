@@ -42,7 +42,7 @@ namespace XlsxJson
             1303 => "超出精度范围",
             1304 => "不是整数或超出精度范围",
             1305 => "不是小数或超出精度范围",
-            1306 => @"字符串需用""包括，且字符串中包含""时需替换成\""，且字符串中包含\""时需替换成\\\""",
+            1306 => @"复合类型中的字符串需用""包括，且字符串中包含""时需替换成\""，且字符串中包含\""时需替换成\\\""",
             1307 => "bool类型只能填0和1",
             1308 => "值数量溢出",
             1309 => "键值对的键值需用:分隔",
@@ -189,7 +189,11 @@ namespace XlsxJson
         public (short error, string value) Parse(string value)
         {
             (short error, string value) outValue = (0, "");
-            if (Kind == TypeKind.Simple) outValue = Parse(Items[0], value);
+            if (Kind == TypeKind.Simple)
+            {
+                if (Items[0] != __str) outValue = Parse(Items[0], value);
+                else outValue.value = (value ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n");
+            }
             else
             {
                 // 字符串需用"包括，且字符串中包含"时需替换成\"，且字符串中包含\"时需替换成\\\"
