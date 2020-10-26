@@ -13,7 +13,7 @@
             "program": "${workspaceFolder}/bin/Debug/net5.0/XlsxJson.dll",
             "args": [
                 "-f",
-                "${workspaceFolder}/doc/test.xlsx"
+                "${workspaceFolder}/doc/example.xlsx"
             ],
             "cwd": "${workspaceFolder}",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console

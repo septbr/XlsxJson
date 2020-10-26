@@ -443,24 +443,25 @@ namespace XlsxJson
                             Reference = cells[0].Reference.Value;
                             break;
                         }
-                        for (int i = 1; i < cells.Count; i++)
-                        {
-                            var value = cells[i].Value.Trim();
-                            if (value != "" && value != "-")
-                            {
-                                Error = 1203;
-                                Reference = cells[i].Reference.Value;
-                                break;
-                            }
-                        }
-                        if (Error != 0) break;
 
                         var isOuts = indexs.ConvertAll(_ => true);
                         for (int i = 0, j = 0; i < indexs.Count; i++)
                         {
                             while (j < cells.Count && cells[j].Reference.Column < indexs[i].column) j++;
-                            if (j < cells.Count && cells[j].Reference.Column == indexs[i].column) isOuts[i] = cells[j].Value.Trim() != "-";
+                            if (j < cells.Count && cells[j].Reference.Column == indexs[i].column)
+                            {
+                                var value = cells[j].Value.Trim();
+                                if (value != "" && value != "-")
+                                {
+                                    Error = 1203;
+                                    Reference = cells[j].Reference.Value;
+                                    break;
+                                }
+                                isOuts[i] = value != "-";
+                            }
                         }
+                        if (Error != 0) break;
+
                         if (outputs.ContainsKey(flag))
                         {
                             Error = 1202;
@@ -509,30 +510,36 @@ namespace XlsxJson
                     if (cells.Count > 0)
                     {
                         var row = new List<string>();
-                        var rowIndex = "";
                         for (int i = 0, j = 0; i < indexs.Count; i++)
                         {
                             while (j < cells.Count && cells[j].Reference.Column < indexs[i].column) j++;
-                            var cellValue = j < cells.Count && cells[j].Reference.Column == indexs[i].column ? cells[j].Value.Trim() : "";
-                            var (error, value) = types[i].Parse(cellValue);
-                            if (error != 0)
+                            row.Add(j < cells.Count && cells[j].Reference.Column == indexs[i].column ? cells[j].Value.Trim() : "");
+                        }
+                        if (row.Exists(value => value != ""))
+                        {
+                            var rowIndex = "";
+                            for (int i = 0; i < indexs.Count; i++)
                             {
-                                Error = error;
-                                Reference = new XlsxTextReader.Reference(cells[0].Reference.Row, indexs[i].column).Value;
+                                var (error, value) = types[i].Parse(row[i]);
+                                if (error != 0)
+                                {
+                                    Error = error;
+                                    Reference = new XlsxTextReader.Reference(cells[0].Reference.Row, indexs[i].column).Value;
+                                    break;
+                                }
+                                row[i] = value;
+                                if (indexs[i].index.IsPrimary) rowIndex += value;
+                            }
+                            if (Error != 0) break;
+                            if (rowIndexs.IndexOf(rowIndex) != -1)
+                            {
+                                Error = 1350;
+                                Reference = new XlsxTextReader.Reference(cells[0].Reference.Row, 1).Value;
                                 break;
                             }
-                            if (indexs[i].index.IsPrimary) rowIndex += value;
-                            row.Add(value);
+                            rows.Add(new ReadOnlyCollection<string>(row));
+                            rowIndexs.Add(rowIndex);
                         }
-                        if (Error != 0) break;
-                        if (rowIndexs.IndexOf(rowIndex) != -1)
-                        {
-                            Error = 1350;
-                            Reference = new XlsxTextReader.Reference(cells[0].Reference.Row, 1).Value;
-                            break;
-                        }
-                        rows.Add(new ReadOnlyCollection<string>(row));
-                        rowIndexs.Add(rowIndex);
                     }
                 }
             }
