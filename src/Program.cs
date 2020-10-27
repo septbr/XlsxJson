@@ -207,7 +207,7 @@ namespace XlsxJson
 
             Directory.CreateDirectory(config.outDir);
             foreach ((var name, var json) in jsons)
-                File.WriteAllText(Path.Combine(config.outDir, name) + ".json", json.ToString());
+                File.WriteAllText(Path.Combine(config.outDir, name + ".data") + ".json", json.ToString());
 
             return res;
         }
