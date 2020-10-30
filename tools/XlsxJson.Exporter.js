@@ -80,6 +80,59 @@ __SHEET_DATA_GET__
         return (rowss[sheet] || []).every(row => iterator(make(sheet, row)));
     }
 }`;
+let goTemplate = `package xlsx
+
+import (
+	"encoding/json"
+	"io/ioutil"
+	"os"
+)
+
+type u8 = uint8
+type u16 = uint16
+type u32 = uint32
+type u64 = uint64
+type i8 = int8
+type i16 = int16
+type i32 = int32
+type i64 = int64
+type f32 = float32
+type f64 = float64
+type str = string
+type any = interface{}
+
+__SHEETS_DATA__
+
+__SHEETS_FUN__
+
+// 加载并解析JSON
+// 若失败则返回错误，成功则覆盖数据
+func Load(path string) (err interface{}) {
+	_0, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	_1, err := ioutil.ReadAll(_0)
+	if err != nil {
+		return err
+	}
+	var _2 map[string][][]any
+	err = json.Unmarshal(_1, &_2)
+	if err != nil {
+		return err
+	}
+
+	defer func() { err = recover() }()
+
+__SHEETS_PARSE_0__
+	for _3, _4 := range _2 {
+__SHEETS_PARSE__
+	}
+__SHEETS_PARSE_1__
+
+	return err
+}`;
+
 function ts(template, sheets) {
     /**
      * @param {string} types
@@ -107,14 +160,13 @@ function ts(template, sheets) {
     }
     let __SHEETS_DATA__ = '', __SHEETS_DATA_MAP__ = '', __SHEET_DATA_GET__ = '';
     for (const sheet in sheets) {
-        let SHEET = 'XD' + sheet[0].toUpperCase() + sheet.substr(1);
         /** @type [string, string, number, string][] */
         let header = sheets[sheet][0];
         /** @type [string, string, string][] */
         let primarys = [];
 
         __SHEETS_DATA__ += __SHEETS_DATA__.length > 0 ? '\n' : '';
-        __SHEETS_DATA__ += `    export interface ${SHEET} {\n`;
+        __SHEETS_DATA__ += `    export interface ${upperCaption(sheet)} {\n`;
         header.forEach(([name, types, primary, comment]) => {
             let type = toType(types);
             if (comment) __SHEETS_DATA__ += `        /** ${comment} */\n`;
@@ -124,12 +176,12 @@ function ts(template, sheets) {
         __SHEETS_DATA__ += `    }`;
 
         __SHEETS_DATA_MAP__ += __SHEETS_DATA_MAP__.length > 0 ? '\n' : '';
-        __SHEETS_DATA_MAP__ += `        ${sheet}: ${SHEET};`;
+        __SHEETS_DATA_MAP__ += `        ${sheet}: ${upperCaption(sheet)};`;
 
         __SHEET_DATA_GET__ += __SHEET_DATA_GET__.length > 0 ? '\n' : '';
         if (primarys.length) {
-            __SHEET_DATA_GET__ += `    /**\n${primarys.map(([name, _, comment]) => '     * @param ' + name + ' ' + comment).join('\n')}\n     */\n`;
-            __SHEET_DATA_GET__ += `    export function get(sheet: '${sheet}', ${primarys.map(([name, type]) => name + ': ' + type).join(', ')}): ${SHEET};`;
+            __SHEET_DATA_GET__ += `    /**\n${primarys.map(([name, _, comment]) => `     * @param _${name} ${comment}`).join('\n')}\n     */\n`;
+            __SHEET_DATA_GET__ += `    export function get(sheet: '${sheet}', ${primarys.map(([name, type]) => `_${name}: ${type}`).join(', ')}): ${upperCaption(sheet)};`;
         }
     }
 
@@ -137,6 +189,109 @@ function ts(template, sheets) {
         .replace('__SHEETS_DATA__', __SHEETS_DATA__)
         .replace('__SHEETS_DATA_MAP__', __SHEETS_DATA_MAP__)
         .replace('__SHEET_DATA_GET__', __SHEET_DATA_GET__);
+}
+
+function go(template, sheets) {
+    /** @param {string} value */
+    const lowerCaption = (value) => '_' + value[0].toLowerCase() + value.substr(1);
+    /** @param {string} value */
+    const upperCaption = value => value[0].toUpperCase() + value.substr(1);
+
+    let __SHEETS_DATA__ = '', __SHEETS_FUN__ = '', __SHEETS_PARSE_0__ = '', __SHEETS_PARSE__ = '', __SHEETS_PARSE_1__ = '';
+    let count = 0;
+    for (const sheet in sheets) {
+        /** @type [string, string, number, string][] */
+        let header = sheets[sheet][0];
+        /** @type [string, string | string[]][] */
+        let nameTypes = []
+        header.forEach(v => {
+            let name = v[0], type = v[1];
+            if (type[0] == '[') {
+                type = type.substr(1, type.length - 2).split(',');
+            } else if (type[type.length - 1] == ']') {
+                let count = type.substring(type.indexOf('[') + 1, type.length - 1);
+                type = `[${count}]${type.substring(0, type.indexOf('['))}`;
+            } else if (type.includes(':')) {
+                type = `map[${type.split(':').join(']')}`;
+            }
+            nameTypes.push([name, type]);
+        });
+
+        __SHEETS_DATA__ += __SHEETS_DATA__.length > 0 ? '\n' : '';
+        __SHEETS_DATA__ += `var ${lowerCaption(sheet)}s []${lowerCaption(sheet)}`;
+
+        __SHEETS_FUN__ += __SHEETS_FUN__.length > 0 ? '\n\n' : '';
+        __SHEETS_FUN__ += `type ${lowerCaption(sheet)} struct {\n`
+        nameTypes.forEach(([name, type]) => {
+            if (typeof type == 'string') __SHEETS_FUN__ += `    ${lowerCaption(name)} ${type}\n`;
+            else type.forEach((type, index) => __SHEETS_FUN__ += `    ${lowerCaption(name)}${index} ${type}\n`)
+        });
+        __SHEETS_FUN__ += '}\n';
+        __SHEETS_FUN__ += `type ${upperCaption(sheet)} interface {\n`;
+        nameTypes.forEach(([name, type], index) => __SHEETS_FUN__ += `    ${upperCaption(name)}() ${typeof type == 'string' ? type : '(' + type.join(', ') + ')'} // ${header[index][3]}\n`);
+        __SHEETS_FUN__ += '}\n\n';
+
+        nameTypes.forEach(([name, type]) => {
+            __SHEETS_FUN__ += `func (d *${lowerCaption(sheet)}) ${upperCaption(name)}() ${typeof type == 'string' ? type : '(' + type.join(', ') + ')'} {`;
+            if (typeof type == 'string') {
+                if (!type.startsWith('map')) __SHEETS_FUN__ += ` return d.${lowerCaption(name)} }\n`;
+                else __SHEETS_FUN__ += `\n\t_0 := ${type}{}\n\tfor k, v := range d.${lowerCaption(name)} {\n\t\t_0[k] = v\n\t}\n\treturn _0\n}\n`;
+            } else __SHEETS_FUN__ += ` return ${type.map((_, i) => `d.${lowerCaption(name)}${i}`).join(', ')} }\n`;
+        });
+
+        /** @type [string, string | string[]][] */
+        let indexNameTypes = []; nameTypes.forEach((v, i) => header[i][2] == 1 && indexNameTypes.push([...v, i]));
+        if (indexNameTypes.length) {
+            __SHEETS_FUN__ += `// \n${indexNameTypes.map(([n, t, i]) => `// @param ${lowerCaption(n)} ${header[i][3]}`).join('\n')} \n`;
+            __SHEETS_FUN__ += `func Get${upperCaption(sheet)}(${indexNameTypes.map(([n, t]) => `${lowerCaption(n)} ${t}`).join(', ')}) ${upperCaption(sheet)} {\n\t`;
+            __SHEETS_FUN__ += `for _, _0 := range ${lowerCaption(sheet)}s {\n\t\tif ${indexNameTypes.map(([n, _]) => `_0.${lowerCaption(n)} == ${lowerCaption(n)}`).join(' && ')} {\n\t\t\treturn &_0\n\t\t}\n\t}\n\treturn nil\n}\n`
+        }
+        __SHEETS_FUN__ += `func Find${upperCaption(sheet)}(iterator func(data ${upperCaption(sheet)}) bool) ${upperCaption(sheet)} {\n\t`;
+        __SHEETS_FUN__ += `for _, _0 := range ${lowerCaption(sheet)}s {\n\t\tif iterator(&_0) {\n\t\t\treturn &_0\n\t\t}\n\t}\n\treturn nil\n}\n`;
+        __SHEETS_FUN__ += `func Each${upperCaption(sheet)}(iterator func(data ${upperCaption(sheet)})) {\n\t`;
+        __SHEETS_FUN__ += `for _, _0 := range ${lowerCaption(sheet)}s {\n\t\titerator(&_0)\n\t}\n}\n`
+        __SHEETS_FUN__ += `func Filter${upperCaption(sheet)}(iterator func(data ${upperCaption(sheet)}) bool) []${upperCaption(sheet)} {\n\t`;
+        __SHEETS_FUN__ += `var _0 []${upperCaption(sheet)}\n\tfor _, _1 := range ${lowerCaption(sheet)}s {\n\t\tif iterator(&_1) {\n\t\t\t_0 = append(_0, &_1)\n\t\t}\n\t}\n\treturn _0\n}`;
+
+        __SHEETS_PARSE_0__ += __SHEETS_PARSE_0__.length ? '\n' : '';
+        __SHEETS_PARSE_0__ += `\tvar __${count} []${lowerCaption(sheet)}`;
+
+        __SHEETS_PARSE__ += __SHEETS_PARSE__.length ? '\n' : '';
+        __SHEETS_PARSE__ += `\t\tif _3 == "${sheet}" {\n\t\t\tfor i := 1; i < len(_4); i++ {\n\t\t\t\t_5 := ${lowerCaption(sheet)}{}\n\t\t\t\t`;
+        const toValue = (type, value) => {
+            if (type == 'str')
+                return `${value}.(str)`;
+            else if (type == 'bool')
+                return `${value}.(f64) == 1`;
+            else
+                return `${type}(${value}.(f64))`;
+        }
+        nameTypes.forEach(([name, type], index) => {
+            if (typeof type == 'string') {
+                if (!type.startsWith('map')) __SHEETS_PARSE__ += `_5.${lowerCaption(name)} = ${toValue(type, `_4[i][${index}]`)}\n\t\t\t\t`;
+                else {
+                    __SHEETS_PARSE__ += `_5.${lowerCaption(name)} = ${type}{}\n\t\t\t\t`;
+                    __SHEETS_PARSE__ += `for _, v := range _4[i][${index}].([]any) {\n\t\t\t\t\tif v, ok := v.([]any); ok {\n\t\t\t\t\t\t`;
+                    let kt = type.substring(type.indexOf('[') + 1, type.indexOf(']')), vt = type.substring(type.indexOf(']') + 1);
+                    __SHEETS_PARSE__ += `_5.${lowerCaption(name)}[${toValue(kt, 'v[0]')}] = ${toValue(vt, 'v[1]')}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\t`;
+                }
+            }
+            else type.forEach((type, i) => __SHEETS_PARSE__ += `_5.${lowerCaption(name)}${i} = ${toValue(type, `_4[i][${index}].([]any)[${i}]`)}\n\t\t\t\t`);
+        });
+        __SHEETS_PARSE__ += `__${count} = append(__${count}, _5)\n\t\t\t}\n\t\t}`;
+
+        __SHEETS_PARSE_1__ += __SHEETS_PARSE_1__.length ? '\n' : '';
+        __SHEETS_PARSE_1__ += `\t${lowerCaption(sheet)}s = __${count}`;
+
+        count++;
+    }
+
+    return template
+        .replace('__SHEETS_DATA__', __SHEETS_DATA__)
+        .replace('__SHEETS_FUN__', __SHEETS_FUN__)
+        .replace('__SHEETS_PARSE_0__', __SHEETS_PARSE_0__)
+        .replace('__SHEETS_PARSE__', __SHEETS_PARSE__)
+        .replace('__SHEETS_PARSE_1__', __SHEETS_PARSE_1__);
 }
 
 module.exports.cc = function (sheets) {
@@ -155,7 +310,7 @@ module.exports.cc = function (sheets) {
 
 module.exports.node = function (sheets) {
     let template = tsTemplate.replace('__TS_TEMPLATE__',
-        `            (require('fs') as typeof import('fs')).readFile.readFile(path, 'utf8', (err, data) => {
+        `            (require('fs') as typeof import('fs')).readFile(path, 'utf8', (err, data) => {
                 if (err) { 
                     console.error(err);
                     resolve(false);
@@ -166,3 +321,5 @@ module.exports.node = function (sheets) {
             });`);
     return ts(template, sheets);
 }
+
+module.exports.go = function (sheets) { return go(goTemplate, sheets); }
