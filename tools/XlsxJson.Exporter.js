@@ -21,36 +21,26 @@ __SHEETS_DATA_MAP__
 
     /**
      * 加载json
-     * @param path json路径
-     */
-    export function load(path: string, onCompleted?: (err?: Error) => void): void;
-    /**
-     * 加载json
      * @param json json数据
      */
-    export function load(json: object, onCompleted?: (err?: Error) => void): void;
-    /** @implements */
-    export function load(arg0: string | object, onCompleted?: (err?: Error) => void): void {
-        let init: (json: any) => Error = json => {
-            let _hdrs = hdrs, _rowss = rowss;
-            try {
-                hdrs = {} as any, rowss = json;
-                for (let sheet in rowss) {
-                    let hdr = rowss[sheet as keyof Sheets].shift()!;
-                    hdrs[sheet as keyof Sheets] = hdr.map(index => [
-                        index[0],
-                        index[1].indexOf(':') >= 0 ? 4 : index[1][0] == '[' ? 3 : index[1].endsWith(']') ? 2 : 1,
-                        index[2] == 1
-                    ]);
-                    /** check data */
-                    rowss[sheet as keyof Sheets].forEach(row => make(sheet as keyof Sheets, row));
-                }
-            } catch (err) {
-                hdrs = _hdrs, rowss = _rowss;
-                return err;
+    export function load(json: typeof rowss)?: Error {
+        let _hdrs = hdrs, _rowss = rowss;
+        try {
+            hdrs = {} as any, rowss = json;
+            for (let sheet in rowss) {
+                let hdr = rowss[sheet as keyof Sheets].shift()!;
+                hdrs[sheet as keyof Sheets] = hdr.map(index => [
+                    index[0],
+                    index[1].indexOf(':') >= 0 ? 4 : index[1][0] == '[' ? 3 : index[1].endsWith(']') ? 2 : 1,
+                    index[2] == 1
+                ]);
+                /** check data */
+                rowss[sheet as keyof Sheets].forEach(row => make(sheet as keyof Sheets, row));
             }
-        };
-__TS_TEMPLATE__
+        } catch (err) {
+            hdrs = _hdrs, rowss = _rowss;
+            return err;
+        }
     }
 
     function make<T extends keyof Sheets>(sheet: T, row: any[]): Sheets[T] {
@@ -155,7 +145,7 @@ const lCap = (value) => value[0].toLowerCase() + value.substr(1);
 /** @param {string} value */
 const uCap = value => value[0].toUpperCase() + value.substr(1);
 
-function ts(template, sheets) {
+module.exports.ts = sheets => {
     /**
      * @param {string} types
      * @return {string}
@@ -207,13 +197,13 @@ function ts(template, sheets) {
         }
     }
 
-    return template
+    return tsTemplate
         .replace('__SHEETS_DATA__', __SHEETS_DATA__)
         .replace('__SHEETS_DATA_MAP__', __SHEETS_DATA_MAP__)
         .replace('__SHEET_DATA_GET__', __SHEET_DATA_GET__);
 }
 
-function go(template, sheets) {
+module.exports.go = (sheets) => {
     const _lCap = str => '_' + lCap(str);
     let __SHEETS_DATA__ = '', __SHEETS_FUN__ = '', __SHEETS_PARSE_0__ = '', __SHEETS_PARSE__ = '', __SHEETS_PARSE_1__ = '';
     for (const sheet in sheets) {
@@ -306,46 +296,10 @@ function go(template, sheets) {
         __SHEETS_PARSE_1__ += `\t${_lCap(sheet)}s = _${_lCap(sheet)}`;
     }
 
-    return template
+    return goTemplate
         .replace('__SHEETS_DATA__', __SHEETS_DATA__)
         .replace('__SHEETS_FUN__', __SHEETS_FUN__)
         .replace('__SHEETS_PARSE_0__', __SHEETS_PARSE_0__)
         .replace('__SHEETS_PARSE__', __SHEETS_PARSE__)
         .replace('__SHEETS_PARSE_1__', __SHEETS_PARSE_1__);
 }
-
-module.exports.cc = function (sheets) {
-    let template = tsTemplate.replace('__TS_TEMPLATE__',
-        `        if (typeof arg0 == 'object') {
-            let err = init(arg0);
-            onCompleted && onCompleted(err);
-        } else {
-            cc.loader.loadRes(arg0, cc.JsonAsset, (err: Error | null, data: cc.JsonAsset) => {
-                if (err) onCompleted && onCompleted(err);
-                else {
-                    let err = init(data.json);
-                    onCompleted && onCompleted(err);
-                }
-            });
-        }`);
-    return ts(template, sheets);
-}
-
-module.exports.node = function (sheets) {
-    let template = tsTemplate.replace('__TS_TEMPLATE__',
-        `        if (typeof arg0 == 'object') {
-            let err = init(arg0);
-            onCompleted && onCompleted(err);
-        } else {
-            (require('fs') as typeof import('fs')).readFile(arg0, 'utf8', (err, data) => {
-                if (err) onCompleted && onCompleted(err);
-                else {
-                    let err = init(JSON.parse(data));
-                    onCompleted && onCompleted(err);
-                }
-            });
-        }`);
-    return ts(template, sheets);
-}
-
-module.exports.go = function (sheets) { return go(goTemplate, sheets); }
