@@ -23,7 +23,7 @@ __SHEETS_DATA_MAP__
      * 加载json
      * @param json json数据
      */
-    export function load(json: typeof rowss)?: Error {
+    export function load(json: typeof rowss): Error | undefined {
         let _hdrs = hdrs, _rowss = rowss;
         try {
             hdrs = {} as any, rowss = json;
