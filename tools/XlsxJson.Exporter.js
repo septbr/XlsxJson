@@ -21,12 +21,12 @@ __SHEETS_DATA_MAP__
 
     /**
      * 加载json
-     * @param json json数据
+     * @param json JSON字符串 或 JSON对象
      */
-    export function load(json: typeof rowss): Error | undefined {
+    export function load(json: string | object): Error | undefined {
         let _hdrs = hdrs, _rowss = rowss;
         try {
-            hdrs = {} as any, rowss = json;
+            hdrs = {} as any, rowss = typeof json == 'object' ? json : JSON.parse(json);
             for (let sheet in rowss) {
                 let hdr = rowss[sheet as keyof Sheets].shift()!;
                 hdrs[sheet as keyof Sheets] = hdr.map(index => [
