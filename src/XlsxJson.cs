@@ -16,7 +16,7 @@ namespace XlsxJson
         public string ErrorInfo => Error switch
         {
             1001 => "索引不能为空",
-            1002 => "索引只能包含下划线字母和数字且必须以下划线或字母开头",
+            1002 => "索引只能包含下划线字母和数字且必须以字母开头",
             1003 => "索引重复",
             1004 => "索引行不允许出现合并单元格",
 
@@ -50,7 +50,7 @@ namespace XlsxJson
             1350 => "该行主索引组合重复",
             1399 => "无法解析",
 
-            2001 => "表名只能包含下划线字母和数字且必须以下划线或字母开头",
+            2001 => "表名只能包含下划线字母和数字且必须以字母开头",
 
             _ => ""
         };
@@ -77,7 +77,7 @@ namespace XlsxJson
                 IsPrimary = true;
                 Text = Text.Substring(1);
             }
-            if (!Regex.IsMatch(Text, @"^[a-zA-Z_][a-zA-Z\d_]*$"))
+            if (!Regex.IsMatch(Text, @"^[a-zA-Z][a-zA-Z\d_]*$"))
                 Error = 1002;
         }
     }
@@ -306,11 +306,12 @@ namespace XlsxJson
                 if (value == "") value = "0";
                 if (type == __u8 || type == __u16 || type == __u32 || type == __i8 || type == __i16 || type == __i32 || type == __i64)
                 {
+                    const long longMinValue = -9007199254740991, longMaxValue = 9007199254740991;
                     if (!long.TryParse(value, out long num)) outValue.error = 1304;
                     else
                     {
-                        long min = type == __i8 ? sbyte.MinValue : type == __i16 ? short.MinValue : type == __i32 ? int.MinValue : type == __i64 ? long.MinValue : 0;
-                        long max = type == __i8 ? sbyte.MaxValue : type == __i16 ? short.MaxValue : type == __i32 ? int.MaxValue : type == __i64 ? long.MaxValue : type == __u8 ? byte.MaxValue : type == __u16 ? ushort.MaxValue : uint.MaxValue;
+                        long min = type == __i8 ? sbyte.MinValue : type == __i16 ? short.MinValue : type == __i32 ? int.MinValue : type == __i64 ? longMinValue : 0;
+                        long max = type == __i8 ? sbyte.MaxValue : type == __i16 ? short.MaxValue : type == __i32 ? int.MaxValue : type == __i64 ? longMaxValue : type == __u8 ? byte.MaxValue : type == __u16 ? ushort.MaxValue : uint.MaxValue;
                         if (num < min || num > max) outValue.error = 1303;
                         else outValue.value = num + "";
                     }
@@ -545,7 +546,7 @@ namespace XlsxJson
             }
 
             Text = worksheet.Name;
-            if (indexs.Count > 0 && !Regex.IsMatch(Text, @"^[a-zA-Z_][a-zA-Z\d_]*$")) Error = 2001;
+            if (indexs.Count > 0 && !Regex.IsMatch(Text, @"^[a-zA-Z][a-zA-Z\d_]*$")) Error = 2001;
             if (Error == 0)
             {
                 Indexs = new ReadOnlyCollection<Index>(indexs.ConvertAll(index => index.index));
