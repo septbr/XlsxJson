@@ -102,6 +102,23 @@ type f64 = float64
 type str = string
 type any = interface{}
 
+func copy(value interface{}) interface{} {
+	if mValue, ok := value.(map[interface{}]interface{}); ok {
+		cValue := map[interface{}]interface{}{}
+		for k, v := range mValue {
+			cValue[k] = copy(v)
+		}
+		return cValue
+	} else if sValue, ok := value.([]interface{}); ok {
+		cValue := make([]interface{}, len(sValue))
+		for k, v := range sValue {
+			cValue[k] = copy(v)
+		}
+		return cValue
+	}
+	return value
+}
+
 __SHEETS_DATA__
 
 __SHEETS_FUN__
@@ -229,28 +246,57 @@ module.exports.go = (sheets) => {
 
         __SHEETS_FUN__ += __SHEETS_FUN__.length > 0 ? '\n\n' : '';
         __SHEETS_FUN__ += `type ${_lCap(sheet)} struct {\n`
+        /** @type [string,string] */
+        let members = [], maxDefineLength = 0;
         nameTypes.forEach(([name, type]) => {
-            if (typeof type == 'string') __SHEETS_FUN__ += `    ${_lCap(name)} ${type}\n`;
-            else type.forEach((type, index) => __SHEETS_FUN__ += `    ${_lCap(name)}${index} ${type}\n`)
+            if (typeof type == 'string') {
+                let start = `\t${_lCap(name)}`;
+                if (start.length > maxDefineLength) maxDefineLength = start.length;
+                members.push([start, type]);
+            } else type.forEach((type, index) => {
+                let start = `\t${_lCap(name)}${index}`;
+                if (start.length > maxDefineLength) maxDefineLength = start.length;
+                members.push([start, type]);
+            });
+        });
+        members.forEach(v => {
+            while (v[0].length < maxDefineLength) v[0] += ' ';
+            __SHEETS_FUN__ += v[0] + ' ' + v[1] + '\n';
         });
         __SHEETS_FUN__ += '}\n';
         __SHEETS_FUN__ += `type ${uCap(sheet)} interface {\n`;
-        nameTypes.forEach(([name, type], index) => __SHEETS_FUN__ += `    ${uCap(name)}() ${typeof type == 'string' ? type : '(' + type.join(', ') + ')'} // ${header[index][3]}\n`);
+        members = [], maxDefineLength = 0;
+        nameTypes.forEach(([name, type], index) => {
+            let start = `\t${uCap(name)}() ${typeof type == 'string' ? type : '(' + type.join(', ') + ')'}`, end = `// ${header[index][3]}`;
+            if (start.length > maxDefineLength) maxDefineLength = start.length;
+            members.push([start, end]);
+        });
+        members.forEach(v => {
+            while (v[0].length < maxDefineLength) v[0] += ' ';
+            __SHEETS_FUN__ += v[0] + ' ' + v[1] + '\n';
+        });
         __SHEETS_FUN__ += '}\n\n';
 
+        members = [], maxDefineLength = 0;
         nameTypes.forEach(([name, type]) => {
-            __SHEETS_FUN__ += `func (d *${_lCap(sheet)}) ${uCap(name)}() ${typeof type == 'string' ? type : '(' + type.join(', ') + ')'} {`;
+            let start = `func (d *${_lCap(sheet)}) ${uCap(name)}() ${typeof type == 'string' ? type : '(' + type.join(', ') + ')'}`, end = '';
+            if (start.length > maxDefineLength) maxDefineLength = start.length;
             if (typeof type == 'string') {
-                if (!type.startsWith('map')) __SHEETS_FUN__ += ` return d.${_lCap(name)} }\n`;
-                else __SHEETS_FUN__ += `\n\tdata := ${type}{}\n\tfor k, v := range d.${_lCap(name)} {\n\t\tdata[k] = v\n\t}\n\treturn data\n}\n`;
-            } else __SHEETS_FUN__ += ` return ${type.map((_, i) => `d.${_lCap(name)}${i}`).join(', ')} }\n`;
+                if (!type.startsWith('map')) end = `{ return d.${_lCap(name)} }`;
+                else end = `{ return copy(d.${_lCap(name)}).(${type}) }`;
+            } else end = `{ return ${type.map((_, i) => `d.${_lCap(name)}${i}`).join(', ')} }`;
+            members.push([start, end]);
+        });
+        members.forEach(v => {
+            while (v[0].length < maxDefineLength) v[0] += ' ';
+            __SHEETS_FUN__ += v[0] + ' ' + v[1] + '\n';
         });
 
         __SHEETS_FUN__ += '\n';
         /** @type [string, string | string[]][] */
         let indexNameTypes = []; nameTypes.forEach((v, i) => header[i][2] == 1 && indexNameTypes.push([...v, i]));
         if (indexNameTypes.length) {
-            __SHEETS_FUN__ += `${indexNameTypes.map(([n, t, i]) => `// @param ${_lCap(n)} ${header[i][3]}`).join('\n')} \n`;
+            __SHEETS_FUN__ += `${indexNameTypes.map(([n, t, i]) => `// @param ${_lCap(n)} ${header[i][3]}`).join('\n')}\n`;
             __SHEETS_FUN__ += `func Get${uCap(sheet)}(${indexNameTypes.map(([n, t]) => `${_lCap(n)} ${t}`).join(', ')}) ${uCap(sheet)} {\n\t`;
             __SHEETS_FUN__ += `for _, v := range ${_lCap(sheet)}s {\n\t\tif ${indexNameTypes.map(([n, _]) => `v.${_lCap(n)} == ${_lCap(n)}`).join(' && ')} {\n\t\t\treturn &v\n\t\t}\n\t}\n\treturn nil\n}\n`
         }
