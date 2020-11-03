@@ -102,23 +102,6 @@ type f64 = float64
 type str = string
 type any = interface{}
 
-func copy(value interface{}) interface{} {
-	if mValue, ok := value.(map[interface{}]interface{}); ok {
-		cValue := map[interface{}]interface{}{}
-		for k, v := range mValue {
-			cValue[k] = copy(v)
-		}
-		return cValue
-	} else if sValue, ok := value.([]interface{}); ok {
-		cValue := make([]interface{}, len(sValue))
-		for k, v := range sValue {
-			cValue[k] = copy(v)
-		}
-		return cValue
-	}
-	return value
-}
-
 __SHEETS_DATA__
 
 __SHEETS_FUN__
@@ -279,13 +262,26 @@ module.exports.go = (sheets) => {
 
         members = [], maxDefineLength = 0;
         nameTypes.forEach(([name, type]) => {
+            let isBreak = false;
             let start = `func (d *${_lCap(sheet)}) ${uCap(name)}() ${typeof type == 'string' ? type : '(' + type.join(', ') + ')'}`, end = '';
-            if (start.length > maxDefineLength) maxDefineLength = start.length;
             if (typeof type == 'string') {
-                if (!type.startsWith('map')) end = `{ return d.${_lCap(name)} }`;
-                else end = `{ return copy(d.${_lCap(name)}).(${type}) }`;
-            } else end = `{ return ${type.map((_, i) => `d.${_lCap(name)}${i}`).join(', ')} }`;
-            members.push([start, end]);
+                if (!type.startsWith('map'))
+                    end = `{ return d.${_lCap(name)} }`;
+                else
+                    isBreak = true, end = `{\n\tdata := ${type}{}\n\tfor k, v := range d.${_lCap(name)} {\n\t\tdata[k] = v\n\t}\n\treturn data\n}`;
+            } else
+                end = `{ return ${type.map((_, i) => `d.${_lCap(name)}${i}`).join(', ')} }`;
+            if (isBreak) {
+                members.forEach(v => {
+                    while (v[0].length < maxDefineLength) v[0] += ' ';
+                    __SHEETS_FUN__ += v[0] + ' ' + v[1] + '\n';
+                });
+                __SHEETS_FUN__ += start + ' ' + end + '\n';
+                members = [], maxDefineLength = 0;
+            } else {
+                if (start.length > maxDefineLength) maxDefineLength = start.length;
+                members.push([start, end]);
+            }
         });
         members.forEach(v => {
             while (v[0].length < maxDefineLength) v[0] += ' ';
