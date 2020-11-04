@@ -301,7 +301,7 @@ module.exports.go = (sheets) => {
         __SHEETS_FUN__ += `func Each${uCap(sheet)}(iterator func(data ${uCap(sheet)})) {\n\t`;
         __SHEETS_FUN__ += `for _, v := range ${_lCap(sheet)}s {\n\t\titerator(&v)\n\t}\n}\n`
         __SHEETS_FUN__ += `func Filter${uCap(sheet)}(iterator func(data ${uCap(sheet)}) bool) []${uCap(sheet)} {\n\t`;
-        __SHEETS_FUN__ += `var datas []${uCap(sheet)}\n\tfor _, v := range ${_lCap(sheet)}s {\n\t\tif iterator(&v) {\n\t\t\tdatas = append(datas, &v)\n\t\t}\n\t}\n\treturn datas\n}\n`;
+        __SHEETS_FUN__ += `var datas []${uCap(sheet)}\n\tfor i, v := range ${_lCap(sheet)}s {\n\t\tif iterator(&v) {\n\t\t\tdatas = append(datas, &${_lCap(sheet)}s[i])\n\t\t}\n\t}\n\treturn datas\n}\n`;
         __SHEETS_FUN__ += `func Some${uCap(sheet)}(iterator func(data ${uCap(sheet)}) bool) bool {\n\t`;
         __SHEETS_FUN__ += `for _, v := range ${_lCap(sheet)}s {\n\t\tif iterator(&v) {\n\t\t\treturn true\n\t\t}\n\t}\n\treturn false\n}\n`;
         __SHEETS_FUN__ += `func Every${uCap(sheet)}(iterator func(data ${uCap(sheet)}) bool) bool {\n\t`;
