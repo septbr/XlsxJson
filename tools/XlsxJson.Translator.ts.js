@@ -7,7 +7,7 @@ let tsTemplate = `export namespace xlsx {
     export type i16 = number;
     export type i32 = number;
     export type i64 = number;
-    export type bool = 0 | 1;
+    export type bool = boolean;
     export type str = string;
 
 __SHEETS_DATA__
@@ -31,7 +31,7 @@ __SHEETS_DATA_MAP__
                 let hdr = rowss[sheet as keyof Sheets].shift()!;
                 hdrs[sheet as keyof Sheets] = hdr.map(index => [
                     index[0],
-                    index[1].indexOf(':') >= 0 ? 4 : index[1][0] == '[' ? 3 : index[1].endsWith(']') ? 2 : 1,
+                    index[1].indexOf(':') >= 0 ? 5 : index[1][0] == '[' ? 4 : index[1].endsWith(']') ? 3 : index[1] == 'bool' ? 2 : 1,
                     index[2] == 1
                 ]);
                 /** check data */
@@ -46,8 +46,8 @@ __SHEETS_DATA_MAP__
     function make<T extends keyof Sheets>(sheet: T, row: any[]): Sheets[T] {
         let hdr = hdrs[sheet], data: any = {};
         hdr.forEach(([name, kind], index) => {
-            let value = kind == 1 ? row[index] : kind == 2 || kind == 3 ? row[index].slice(0) : {};
-            if (kind == 4) (row[index] as [any, any][]).forEach(v => value[v[0]] = v[1]);
+            let value = kind == 1 ? row[index] : kind == 2 ? !!row[index] : kind == 3 || kind == 4 ? row[index].slice(0) : {};
+            if (kind == 5) (row[index] as [any, any][]).forEach(v => value[v[0]] = v[1]);
             data[name] = value;
         });
         return data;
