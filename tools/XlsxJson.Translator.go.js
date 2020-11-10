@@ -129,10 +129,12 @@ module.exports.translate = (sheets) => {
             let isBreak = false;
             let start = `func (d *${_lCap(sheet)}) ${uCap(name)}() ${typeof type == 'string' ? type : '(' + type.join(', ') + ')'}`, end = '';
             if (typeof type == 'string') {
-                if (!type.startsWith('map'))
-                    end = `{ return d.${_lCap(name)} }`;
-                else
+                if (type.startsWith('map'))
                     isBreak = true, end = `{\n\tdata := ${type}{}\n\tfor k, v := range d.${_lCap(name)} {\n\t\tdata[k] = v\n\t}\n\treturn data\n}`;
+                else if (type.startsWith('[]'))
+                    isBreak = true, end = `{\n\tdata := make(${type}, len(d.${_lCap(name)}))\n\tcopy(data, d.${_lCap(name)})\n\treturn data\n}`;
+                else
+                    end = `{ return d.${_lCap(name)} }`;
             } else
                 end = `{ return ${type.map((_, i) => `d.${_lCap(name)}${i}`).join(', ')} }`;
             if (isBreak) {
@@ -181,18 +183,29 @@ module.exports.translate = (sheets) => {
                 return `${value}.(str)`;
             else if (type == 'bool')
                 return `${value}.(f64) == 1`;
-            else
+            else if (type != 'f64')
                 return `${type}(${value}.(f64))`;
+            return `${value}.(f64)`;
         }
         nameTypes.forEach(([name, type], index) => {
             if (typeof type == 'string') {
-                if (!type.startsWith('map')) __SHEETS_PARSE__ += `data.${_lCap(name)} = ${toValue(type, `rows[i][${index}]`)}\n\t\t\t\t`;
-                else {
+                if (type.startsWith('[')) {
+                    let cnt = type.substring(1, type.indexOf(']'));
+                    if (cnt) {
+                        __SHEETS_PARSE__ += `for i, v := range rows[i][${index}].([]any) {\n\t\t\t\t\t`;
+                        __SHEETS_PARSE__ += `data.${_lCap(name)}[i] = ${toValue(type.substring(type.indexOf(']') + 1), 'v')}\n\t\t\t\t}\n\t\t\t\t`;
+                    } else {
+                        __SHEETS_PARSE__ += `data.${_lCap(name)} = ${type}{}\n\t\t\t\t`;
+                        __SHEETS_PARSE__ += `for _, v := range rows[i][${index}].([]any) {\n\t\t\t\t\t`;
+                        __SHEETS_PARSE__ += `data.${_lCap(name)} = append(data.${_lCap(name)}, ${toValue(type.substring(type.indexOf(']') + 1), 'v')})\n\t\t\t\t}\n\t\t\t\t`;
+                    }
+                } else if (type.startsWith('map')) {
                     __SHEETS_PARSE__ += `data.${_lCap(name)} = ${type}{}\n\t\t\t\t`;
                     __SHEETS_PARSE__ += `for _, v := range rows[i][${index}].([]any) {\n\t\t\t\t\tif v, ok := v.([]any); ok {\n\t\t\t\t\t\t`;
                     let kt = type.substring(type.indexOf('[') + 1, type.indexOf(']')), vt = type.substring(type.indexOf(']') + 1);
                     __SHEETS_PARSE__ += `data.${_lCap(name)}[${toValue(kt, 'v[0]')}] = ${toValue(vt, 'v[1]')}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\t`;
-                }
+                } else
+                    __SHEETS_PARSE__ += `data.${_lCap(name)} = ${toValue(type, `rows[i][${index}]`)}\n\t\t\t\t`;
             }
             else type.forEach((type, i) => __SHEETS_PARSE__ += `data.${_lCap(name)}${i} = ${toValue(type, `rows[i][${index}].([]any)[${i}]`)}\n\t\t\t\t`);
         });
