@@ -518,7 +518,7 @@ namespace XlsxJson
                         }
                         if (row.Exists(value => value != ""))
                         {
-                            var rowIndex = "";
+                            string rowIndex = null;
                             for (int i = 0; i < indexs.Count; i++)
                             {
                                 var (error, value) = types[i].Parse(row[i]);
@@ -529,17 +529,20 @@ namespace XlsxJson
                                     break;
                                 }
                                 row[i] = value;
-                                if (indexs[i].index.IsPrimary) rowIndex += value;
+                                if (indexs[i].index.IsPrimary) rowIndex = (rowIndex ?? "") + value;
                             }
                             if (Error != 0) break;
-                            if (rowIndexs.IndexOf(rowIndex) != -1)
+                            if (rowIndex != null)
                             {
-                                Error = 1350;
-                                Reference = new XlsxTextReader.Reference(cells[0].Reference.Row, 1).Value;
-                                break;
+                                if (rowIndexs.IndexOf(rowIndex) != -1)
+                                {
+                                    Error = 1350;
+                                    Reference = new XlsxTextReader.Reference(cells[0].Reference.Row, 1).Value;
+                                    break;
+                                }
+                                rowIndexs.Add(rowIndex);
                             }
                             rows.Add(new ReadOnlyCollection<string>(row));
-                            rowIndexs.Add(rowIndex);
                         }
                     }
                 }
