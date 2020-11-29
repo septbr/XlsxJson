@@ -201,7 +201,7 @@ namespace XlsxJson
                 for (int i = 0, li = 0, isIn = 0; i < value.Length; i++)
                 {
                     if (value[i] == '"' && (i == 0 || value[i - 1] != '\\')) isIn = isIn == 0 ? 1 : 0;
-                    if (isIn == 0 && (value[i] == ',' || i == value.Length - 1))
+                    if ((isIn == 0 && value[i] == ',') || i == value.Length - 1)
                     {
                         values.Add(value.Substring(li, i - li + (i == value.Length - 1 ? 1 : 0)));
                         li = i + 1;
