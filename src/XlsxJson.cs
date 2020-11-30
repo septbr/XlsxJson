@@ -192,7 +192,7 @@ namespace XlsxJson
             if (Kind == TypeKind.Simple)
             {
                 if (Items[0] != __str) outValue = Parse(Items[0], value);
-                else outValue.value = '"' + (value ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n") + '"';
+                else outValue.value = '"' + (value ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n").Replace("\t", "\\t") + '"';
             }
             else
             {
@@ -242,7 +242,7 @@ namespace XlsxJson
                                 (short error, string value) keyRes = Parse(Items[0], keyValue.Substring(0, i));
                                 (short error, string value) valueRes = Parse(Items[1], keyValue.Substring(i + 1));
                                 if (keyRes.error == 0 && valueRes.error == 0) item = (keyRes.value, valueRes.value);
-                                else outValue.error = keyRes.error == 0 ? keyRes.error : valueRes.error;
+                                else outValue.error = keyRes.error != 0 ? keyRes.error : valueRes.error;
                                 break;
                             }
                             if (i == keyValue.Length - 1) outValue.error = 1309;
@@ -271,26 +271,25 @@ namespace XlsxJson
             value = (value ?? "").Trim();
             if (type == __str)
             {
-                if (value == "") value = "\"\"";
                 outValue.error = 1306;
 
                 // 字符串需用"包括，且字符串中包含"时需替换成\"，且字符串中包含\"时需替换成\\\"
-                if (value.Length > 1 && value[0] == '"' && value[value.Length - 2] != '\\' && value[value.Length - 1] == '"')
+                if (value.Length > 1 && value[0] == '"' && value[value.Length - 1] == '"')
                 {
                     var builder = new StringBuilder(value.Substring(1, value.Length - 2));
                     var isOk = true;
-                    for (int i = 1; i < builder.Length; i++)
+                    for (int i = 0; i < builder.Length; i++)
                     {
                         if (builder[i] == '\\')
                         {
                             if (i + 1 < builder.Length && builder[i + 1] == '"') i += 1;
-                            else if (i + 3 < builder.Length && builder[i + 1] == '\\' && builder[i + 2] == '\\' && builder[i + 1] == '"') i += 3;
+                            else if (i + 3 < builder.Length && builder[i + 1] == '\\' && builder[i + 2] == '\\' && builder[i + 3] == '"') i += 3;
                             else builder.Insert(i++, '\\');
                         }
-                        else if (builder[i] == '\r' || builder[i] == '\n')
+                        else if (builder[i] == '\r' || builder[i] == '\n' || builder[i] == '\t')
                         {
                             builder.Insert(i++, '\\');
-                            builder[i] = builder[i] == '\r' ? 'r' : 'n';
+                            builder[i] = builder[i] == '\r' ? 'r' : builder[i] == '\n' ? 'n' : 't';
                         }
                         else if (builder[i] == '"')
                         {
@@ -334,7 +333,7 @@ namespace XlsxJson
                 }
                 else if (type == __bool)
                 {
-                    if (!int.TryParse(value, out int num) && num != 0 && num != 1) outValue.error = 1307;
+                    if (!int.TryParse(value, out int num) || (num != 0 && num != 1)) outValue.error = 1307;
                     else outValue.value = num == 1 ? "true" : "false";
                 }
                 else
